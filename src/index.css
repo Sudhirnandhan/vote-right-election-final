@@ -1,0 +1,162 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* VoteRight Design System - Secure, Professional Voting Interface */
+
+@layer base {
+  :root {
+    /* Core backgrounds */
+    --background: 220 20% 98%;
+    --foreground: 215 25% 15%;
+
+    /* Card and surface colors */
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 15%;
+
+    /* Primary - Professional Blue for security/trust */
+    --primary: 214 84% 36%;
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 214 84% 50%;
+    --primary-dark: 214 84% 25%;
+
+    /* Secondary - Trust Green for success states */
+    --secondary: 158 64% 40%;
+    --secondary-foreground: 0 0% 100%;
+    --secondary-light: 158 64% 50%;
+
+    /* Accent - Warning Orange for important actions */
+    --accent: 30 90% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Status colors */
+    --success: 158 64% 40%;
+    --success-foreground: 0 0% 100%;
+    --warning: 30 90% 55%;
+    --warning-foreground: 0 0% 100%;
+    --destructive: 0 84% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Neutral colors */
+    --muted: 215 15% 95%;
+    --muted-foreground: 215 15% 45%;
+    --border: 215 15% 88%;
+    --input: 215 15% 95%;
+    --ring: 214 84% 36%;
+
+    /* Voting-specific colors */
+    --verified: 158 64% 40%;
+    --pending: 30 90% 55%;
+    --secure: 214 84% 36%;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(214 84% 36%), hsl(214 84% 50%));
+    --gradient-success: linear-gradient(135deg, hsl(158 64% 40%), hsl(158 64% 50%));
+    --gradient-secure: linear-gradient(135deg, hsl(214 84% 25%), hsl(214 84% 36%));
+
+    /* Shadows */
+    --shadow-secure: 0 4px 20px hsl(214 84% 36% / 0.1);
+    --shadow-card: 0 2px 10px hsl(215 15% 45% / 0.08);
+    --shadow-elevated: 0 8px 30px hsl(215 15% 45% / 0.12);
+
+    /* Border radius */
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    /* Core backgrounds */
+    --background: 215 25% 8%;
+    --foreground: 210 40% 98%;
+
+    /* Card and surface colors */
+    --card: 215 25% 10%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 215 25% 10%;
+    --popover-foreground: 210 40% 98%;
+
+    /* Primary - Professional Blue for security/trust */
+    --primary: 214 84% 60%;
+    --primary-foreground: 215 25% 8%;
+    --primary-light: 214 84% 70%;
+    --primary-dark: 214 84% 40%;
+
+    /* Secondary - Trust Green for success states */
+    --secondary: 158 64% 50%;
+    --secondary-foreground: 215 25% 8%;
+    --secondary-light: 158 64% 60%;
+
+    /* Accent - Warning Orange for important actions */
+    --accent: 30 90% 65%;
+    --accent-foreground: 215 25% 8%;
+
+    /* Status colors */
+    --success: 158 64% 50%;
+    --success-foreground: 215 25% 8%;
+    --warning: 30 90% 65%;
+    --warning-foreground: 215 25% 8%;
+    --destructive: 0 84% 65%;
+    --destructive-foreground: 215 25% 8%;
+
+    /* Neutral colors */
+    --muted: 215 25% 15%;
+    --muted-foreground: 215 15% 65%;
+    --border: 215 25% 18%;
+    --input: 215 25% 15%;
+    --ring: 214 84% 60%;
+
+    /* Voting-specific colors */
+    --verified: 158 64% 50%;
+    --pending: 30 90% 65%;
+    --secure: 214 84% 60%;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(214 84% 40%), hsl(214 84% 60%));
+    --gradient-success: linear-gradient(135deg, hsl(158 64% 50%), hsl(158 64% 60%));
+    --gradient-secure: linear-gradient(135deg, hsl(214 84% 40%), hsl(214 84% 50%));
+
+    /* Shadows */
+    --shadow-secure: 0 4px 20px hsl(214 84% 60% / 0.2);
+    --shadow-card: 0 2px 10px hsl(215 15% 5% / 0.3);
+    --shadow-elevated: 0 8px 30px hsl(215 15% 5% / 0.4);
+
+    /* Sidebar colors */
+    --sidebar-background: 215 25% 6%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 214 84% 60%;
+    --sidebar-primary-foreground: 215 25% 8%;
+    --sidebar-accent: 215 25% 12%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 215 25% 15%;
+    --sidebar-ring: 214 84% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
