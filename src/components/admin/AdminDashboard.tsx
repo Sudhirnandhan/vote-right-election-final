@@ -65,6 +65,9 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
   // Pending approvals count (polling)
   const [pendingCount, setPendingCount] = useState<number>(0);
 
+  // System logs
+  const [systemLogs, setSystemLogs] = useState<SystemLog[]>([]);
+
   // Fetch users from API
   const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
   useEffect(() => {
