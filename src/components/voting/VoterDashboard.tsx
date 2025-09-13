@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,22 +6,21 @@ import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { Vote, Clock, LogOut, Users, CheckCircle, AlertCircle } from "lucide-react";
 
-interface Election {
+// Backend election types
+interface ServerCandidate { _id: string; name: string }
+interface ServerElection { _id: string; title: string; status: "open" | "closed"; endAt?: string; candidates?: ServerCandidate[] }
+
+// UI types
+interface ElectionListItem {
   id: string;
   title: string;
-  description: string;
   status: "active" | "upcoming" | "completed";
-  candidates: Candidate[];
-  endTime: Date;
+  candidatesCount: number;
+  endTime?: Date;
   hasVoted: boolean;
 }
 
-interface Candidate {
-  id: string;
-  name: string;
-  party: string;
-  description: string;
-}
+interface CandidateItem { id: string; name: string }
 
 interface VoterDashboardProps {
   onLogout: () => void;
@@ -29,68 +28,38 @@ interface VoterDashboardProps {
 }
 
 export const VoterDashboard = ({ onLogout, onVote }: VoterDashboardProps) => {
-  const [timeLeft, setTimeLeft] = useState(20 * 60); // 20 minutes in seconds
-  const [selectedElection, setSelectedElection] = useState<Election | null>(null);
-  const [selectedCandidate, setSelectedCandidate] = useState<string>("");
+  const [timeLeft, setTimeLeft] = useState(20 * 60);
+  const [elections, setElections] = useState<ElectionListItem[]>([]);
+  const [selectedElection, setSelectedElection] = useState<{ id: string; title: string; candidates: CandidateItem[] } | null>(null);
+  const [selectedCandidate, setSelectedCandidate] = useState("");
+  const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
 
-  // Mock elections data
-  const [elections] = useState<Election[]>([
-    {
-      id: "1",
-      title: "Student Council President 2024",
-      description: "Annual student council presidential election",
-      status: "active",
-      hasVoted: false,
-      endTime: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
-      candidates: [
-        {
-          id: "c1",
-          name: "Sarah Johnson",
-          party: "Progressive Student Alliance",
-          description: "Focused on campus sustainability and student welfare"
-        },
-        {
-          id: "c2", 
-          name: "Michael Chen",
-          party: "Student First Coalition",
-          description: "Advocating for academic excellence and career development"
-        },
-        {
-          id: "c3",
-          name: "Emily Rodriguez", 
-          party: "Unity Campus Movement",
-          description: "Building bridges across diverse student communities"
-        }
-      ]
-    },
-    {
-      id: "2",
-      title: "Campus Budget Allocation",
-      description: "Vote on priority areas for next year's campus budget",
-      status: "upcoming",
-      hasVoted: false,
-      endTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
-      candidates: [
-        {
-          id: "b1",
-          name: "Academic Resources",
-          party: "Budget Option",
-          description: "Library upgrades, lab equipment, and study spaces"
-        },
-        {
-          id: "b2",
-          name: "Student Activities",
-          party: "Budget Option", 
-          description: "Sports, clubs, events, and recreational facilities"
-        }
-      ]
-    }
-  ]);
+  // Load elections from server
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/elections`, { credentials: "include" });
+        const data: ServerElection[] = await res.json();
+        const mapped: ElectionListItem[] = data.map((e) => ({
+          id: e._id,
+          title: e.title,
+          status: e.status === "open" ? "active" : "completed", // no explicit "upcoming" status server-side
+          candidatesCount: Array.isArray(e.candidates) ? e.candidates.length : 0,
+          endTime: e.endAt ? new Date(e.endAt) : undefined,
+          hasVoted: false, // could be derived if backend exposes it later
+        }));
+        setElections(mapped);
+      } catch {
+        setElections([]);
+      }
+    };
+    load();
+  }, [API_BASE]);
 
   // Session timer countdown
   useEffect(() => {
     const timer = setInterval(() => {
-      setTimeLeft(prev => {
+      setTimeLeft((prev) => {
         if (prev <= 1) {
           onLogout();
           return 0;
@@ -98,14 +67,24 @@ export const VoterDashboard = ({ onLogout, onVote }: VoterDashboardProps) => {
         return prev - 1;
       });
     }, 1000);
-
     return () => clearInterval(timer);
   }, [onLogout]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const openElection = async (id: string, title: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/elections/${id}`, { credentials: "include" });
+      if (!res.ok) return;
+      const e: ServerElection = await res.json();
+      const candidates: CandidateItem[] = (e.candidates ?? []).map((c) => ({ id: c._id, name: c.name }));
+      setSelectedElection({ id: e._id, title: e.title, candidates });
+      setSelectedCandidate("");
+    } catch {}
   };
 
   const handleVote = () => {
@@ -133,18 +112,12 @@ export const VoterDashboard = ({ onLogout, onVote }: VoterDashboardProps) => {
                 <p className="text-sm text-muted-foreground">Secure Voting Portal</p>
               </div>
             </div>
-            
             <div className="flex items-center space-x-4">
-              {/* Session Timer */}
               <div className="flex items-center space-x-2 bg-muted rounded-lg px-3 py-2">
                 <Clock className="h-4 w-4 text-warning" />
                 <span className="text-sm font-medium">Session: {formatTime(timeLeft)}</span>
-                <Progress 
-                  value={sessionProgress} 
-                  className="w-16 h-2" 
-                />
+                <Progress value={sessionProgress} className="w-16 h-2" />
               </div>
-              
               <Button onClick={onLogout} variant="outline" size="sm">
                 <LogOut className="h-4 w-4 mr-2" />
                 Logout
@@ -156,71 +129,52 @@ export const VoterDashboard = ({ onLogout, onVote }: VoterDashboardProps) => {
 
       <div className="container mx-auto px-4 py-6">
         {!selectedElection ? (
-          // Elections List
           <div className="space-y-6">
             <div>
               <h2 className="text-2xl font-bold mb-2">Available Elections</h2>
               <p className="text-muted-foreground">Select an election to cast your vote</p>
             </div>
-
             <div className="grid gap-4">
               {elections.map((election) => (
-                <Card 
-                  key={election.id} 
-                  className={`cursor-pointer transition-all hover:shadow-lg ${
-                    election.status === "active" ? "border-primary" : ""
-                  }`}
-                  onClick={() => election.status === "active" && !election.hasVoted && setSelectedElection(election)}
+                <Card
+                  key={election.id}
+                  className={`cursor-pointer transition-all hover:shadow-lg ${election.status === "active" ? "border-primary" : ""}`}
+                  onClick={() => election.status === "active" && !election.hasVoted && openElection(election.id, election.title)}
                 >
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="space-y-2">
                         <CardTitle className="flex items-center space-x-2">
                           <span>{election.title}</span>
-                          {election.hasVoted && (
-                            <CheckCircle className="h-5 w-5 text-success" />
-                          )}
+                          {election.hasVoted && <CheckCircle className="h-5 w-5 text-success" />}
                         </CardTitle>
-                        <CardDescription>{election.description}</CardDescription>
+                        <CardDescription>&nbsp;</CardDescription>
                       </div>
-                      
-                      <Badge 
-                        variant={
-                          election.status === "active" ? "default" :
-                          election.status === "upcoming" ? "secondary" : "outline"
-                        }
-                      >
-                        {election.status === "active" ? "Active" :
-                         election.status === "upcoming" ? "Upcoming" : "Completed"}
+                      <Badge variant={election.status === "active" ? "default" : election.status === "upcoming" ? "secondary" : "outline"}>
+                        {election.status === "active" ? "Active" : election.status === "upcoming" ? "Upcoming" : "Completed"}
                       </Badge>
                     </div>
                   </CardHeader>
-                  
                   <CardContent>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                         <div className="flex items-center space-x-1">
                           <Users className="h-4 w-4" />
-                          <span>{election.candidates.length} candidates</span>
+                          <span>{election.candidatesCount} candidates</span>
                         </div>
-                        <div className="flex items-center space-x-1">
-                          <Clock className="h-4 w-4" />
-                          <span>Ends {election.endTime.toLocaleDateString()}</span>
-                        </div>
+                        {election.endTime && (
+                          <div className="flex items-center space-x-1">
+                            <Clock className="h-4 w-4" />
+                            <span>Ends {election.endTime.toLocaleDateString()}</span>
+                          </div>
+                        )}
                       </div>
-                      
                       {election.hasVoted ? (
-                        <Badge variant="outline" className="text-success border-success">
-                          Voted ✓
-                        </Badge>
+                        <Badge variant="outline" className="text-success border-success">Voted ✓</Badge>
                       ) : election.status === "active" ? (
-                        <Button size="sm">
-                          Vote Now
-                        </Button>
+                        <Button size="sm">Vote Now</Button>
                       ) : (
-                        <Badge variant="secondary">
-                          {election.status === "upcoming" ? "Not Started" : "Ended"}
-                        </Badge>
+                        <Badge variant="secondary">{election.status === "upcoming" ? "Not Started" : "Ended"}</Badge>
                       )}
                     </div>
                   </CardContent>
@@ -229,18 +183,14 @@ export const VoterDashboard = ({ onLogout, onVote }: VoterDashboardProps) => {
             </div>
           </div>
         ) : (
-          // Voting Interface
           <div className="space-y-6">
             <div className="flex items-center space-x-4">
-              <Button 
-                variant="outline" 
-                onClick={() => setSelectedElection(null)}
-              >
+              <Button variant="outline" onClick={() => setSelectedElection(null)}>
                 ← Back to Elections
               </Button>
               <div>
                 <h2 className="text-2xl font-bold">{selectedElection.title}</h2>
-                <p className="text-muted-foreground">{selectedElection.description}</p>
+                <p className="text-muted-foreground">&nbsp;</p>
               </div>
             </div>
 
@@ -250,57 +200,37 @@ export const VoterDashboard = ({ onLogout, onVote }: VoterDashboardProps) => {
                   <AlertCircle className="h-5 w-5 text-warning" />
                   <span>Select Your Candidate</span>
                 </CardTitle>
-                <CardDescription>
-                  Choose one candidate. Your vote cannot be changed once submitted.
-                </CardDescription>
+                <CardDescription>Choose one candidate. Your vote cannot be changed once submitted.</CardDescription>
               </CardHeader>
-              
               <CardContent className="space-y-4">
                 {selectedElection.candidates.map((candidate, index) => (
                   <div key={candidate.id}>
-                    <div 
+                    <div
                       className={`
                         p-4 rounded-lg border-2 cursor-pointer transition-all
-                        ${selectedCandidate === candidate.id 
-                          ? "border-primary bg-primary/5" 
-                          : "border-border hover:border-primary/50"
-                        }
+                        ${selectedCandidate === candidate.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}
                       `}
                       onClick={() => setSelectedCandidate(candidate.id)}
                     >
                       <div className="flex items-start space-x-4">
-                        <div className={`
-                          w-6 h-6 rounded-full border-2 flex items-center justify-center
-                          ${selectedCandidate === candidate.id 
-                            ? "border-primary bg-primary" 
-                            : "border-border"
-                          }
-                        `}>
-                          {selectedCandidate === candidate.id && (
-                            <CheckCircle className="h-4 w-4 text-primary-foreground" />
-                          )}
+                        <div
+                          className={`
+                            w-6 h-6 rounded-full border-2 flex items-center justify-center
+                            ${selectedCandidate === candidate.id ? "border-primary bg-primary" : "border-border"}
+                          `}
+                        >
+                          {selectedCandidate === candidate.id && <CheckCircle className="h-4 w-4 text-primary-foreground" />}
                         </div>
-                        
                         <div className="flex-1">
                           <h3 className="font-semibold text-lg">{candidate.name}</h3>
-                          <p className="text-sm text-primary font-medium">{candidate.party}</p>
-                          <p className="text-sm text-muted-foreground mt-1">{candidate.description}</p>
                         </div>
                       </div>
                     </div>
-                    
-                    {index < selectedElection.candidates.length - 1 && (
-                      <Separator className="my-4" />
-                    )}
+                    {index < selectedElection.candidates.length - 1 && <Separator className="my-4" />}
                   </div>
                 ))}
-                
                 <div className="pt-4">
-                  <Button 
-                    onClick={handleVote}
-                    disabled={!selectedCandidate}
-                    className="w-full h-12 text-lg font-medium"
-                  >
+                  <Button onClick={handleVote} disabled={!selectedCandidate} className="w-full h-12 text-lg font-medium">
                     Cast Your Vote
                   </Button>
                 </div>

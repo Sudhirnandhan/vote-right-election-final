@@ -7,9 +7,10 @@ import { env } from "../config/env";
 
 const router = Router();
 
-function signTokens(id: string, role: string) {
-  const access = jwt.sign({ id, role }, env.jwtAccessSecret, { expiresIn: "15m" });
-  const refresh = jwt.sign({ id, role }, env.jwtRefreshSecret, { expiresIn: "7d" });
+function signTokens(id: string, role: string, organizationId?: string) {
+  const basePayload = { id, role, organizationId } as { id: string; role: string; organizationId?: string };
+  const access = jwt.sign(basePayload, env.jwtAccessSecret, { expiresIn: "15m" });
+  const refresh = jwt.sign(basePayload, env.jwtRefreshSecret, { expiresIn: "7d" });
   return { access, refresh };
 }
 
@@ -41,20 +42,20 @@ router.post("/login", async (req, res) => {
     return res.status(403).json({ message: "Account pending approval" });
   }
 
-  const { access, refresh } = signTokens(user.id, user.role);
+  const { access, refresh } = signTokens(user.id, user.role, user.organizationId);
   res.cookie("access_token", access, { httpOnly: true, sameSite: "lax", secure: env.cookieSecure, maxAge: 15 * 60 * 1000 });
   res.cookie("refresh_token", refresh, { httpOnly: true, sameSite: "lax", secure: env.cookieSecure, maxAge: 7 * 24 * 60 * 60 * 1000 });
   user.lastLogin = new Date();
   await user.save();
-  return res.json({ message: "Logged in", role: user.role, name: user.name, email: user.email });
+  return res.json({ message: "Logged in", role: user.role, name: user.name, email: user.email, organizationId: user.organizationId });
 });
 
 router.post("/refresh", async (req, res) => {
   const token = req.cookies?.refresh_token as string | undefined;
   if (!token) return res.status(401).json({ message: "No refresh token" });
   try {
-    const payload = jwt.verify(token, env.jwtRefreshSecret) as { id: string; role: string };
-    const { access } = signTokens(payload.id, payload.role);
+    const payload = jwt.verify(token, env.jwtRefreshSecret) as { id: string; role: string; organizationId?: string };
+    const { access } = signTokens(payload.id, payload.role, payload.organizationId);
     res.cookie("access_token", access, { httpOnly: true, sameSite: "lax", secure: env.cookieSecure, maxAge: 15 * 60 * 1000 });
     return res.json({ message: "Refreshed" });
   } catch {

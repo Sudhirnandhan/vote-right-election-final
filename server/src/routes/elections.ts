@@ -4,13 +4,14 @@ import { requireAuth, requireRole } from "../middleware/auth";
 import { adminRateLimiter } from "../middleware/rateLimit";
 import { Election } from "../models/Election";
 import { Vote } from "../models/Vote";
+import { User } from "../models/User";
 
 const router = Router();
 
 // Create an election (manager/admin)
 router.post("/", requireAuth, requireRole("manager", "admin"), adminRateLimiter, async (req, res) => {
   try {
-    const { title, candidates, endAt } = req.body as { title: string; candidates: { name: string }[]; endAt?: string };
+    const { title, candidates, endAt, eligibleClassLevel } = req.body as { title: string; candidates: { name: string }[]; endAt?: string; eligibleClassLevel?: "11" | "12" | "all" };
     if (!title || !Array.isArray(candidates) || candidates.length === 0) {
       return res.status(400).json({ message: "title and candidates required" });
     }
@@ -18,6 +19,8 @@ router.post("/", requireAuth, requireRole("manager", "admin"), adminRateLimiter,
       title,
       candidates,
       createdBy: new Types.ObjectId(req.user!.id),
+      organizationId: req.user?.organizationId,
+      eligibleClassLevel: eligibleClassLevel ?? "all",
       endAt: endAt ? new Date(endAt) : undefined,
     });
     res.status(201).json(election);
@@ -28,9 +31,44 @@ router.post("/", requireAuth, requireRole("manager", "admin"), adminRateLimiter,
 });
 
 // List elections (basic info)
-router.get("/", requireAuth, async (_req, res) => {
-  const list = await Election.find().select("title status published endAt createdAt updatedAt");
+router.get("/", requireAuth, async (req, res) => {
+  const orgId = req.user?.organizationId;
+  const list = await Election.find({ ...(orgId ? { organizationId: orgId } : {}), deleted: false }).select("title status published endAt createdAt updatedAt organizationId eligibleClassLevel candidates");
   res.json(list);
+});
+
+// List removed (soft-deleted) elections
+router.get("/removed", requireAuth, requireRole("manager", "admin"), async (req, res) => {
+  const orgId = req.user?.organizationId;
+  const list = await Election.find({ ...(orgId ? { organizationId: orgId } : {}), deleted: true }).select("title status published endAt createdAt updatedAt organizationId eligibleClassLevel candidates deletedAt");
+  res.json(list);
+});
+
+// Soft-delete an election
+router.delete("/:id", requireAuth, requireRole("manager", "admin"), adminRateLimiter, async (req, res) => {
+  const { id } = req.params;
+  const election = await Election.findById(id);
+  if (!election) return res.status(404).json({ message: "Election not found" });
+  if (req.user?.organizationId && election.organizationId && election.organizationId !== req.user.organizationId) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+  if (election.deleted) return res.status(400).json({ message: "Already deleted" });
+  election.deleted = true;
+  election.deletedAt = new Date();
+  await election.save();
+  res.json({ message: "Election removed" });
+});
+
+// Get a single election with candidates
+router.get("/:id", requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const election = await Election.findById(id);
+  if (!election) return res.status(404).json({ message: "Election not found" });
+  if (election.deleted) return res.status(410).json({ message: "Election removed" });
+  if (req.user?.organizationId && election.organizationId && election.organizationId !== req.user.organizationId) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+  res.json(election);
 });
 
 // Close an election (manager/admin)
@@ -39,6 +77,10 @@ router.post("/:id/close", requireAuth, requireRole("manager", "admin"), adminRat
   const election = await Election.findById(id);
   if (!election) return res.status(404).json({ message: "Election not found" });
   if (election.status === "closed") return res.status(400).json({ message: "Already closed" });
+  // org scope enforcement
+  if (req.user?.organizationId && election.organizationId && election.organizationId !== req.user.organizationId) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
   election.status = "closed";
   await election.save();
   res.json({ message: "Election closed" });
@@ -51,6 +93,9 @@ router.post("/:id/publish", requireAuth, requireRole("manager"), adminRateLimite
   if (!election) return res.status(404).json({ message: "Election not found" });
   if (election.status !== "closed") return res.status(400).json({ message: "Election must be closed before publishing" });
   if (election.published) return res.status(400).json({ message: "Already published" });
+  if (req.user?.organizationId && election.organizationId && election.organizationId !== req.user.organizationId) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
   election.published = true;
   await election.save();
   res.json({ message: "Results published" });
@@ -68,13 +113,26 @@ router.post("/:id/vote", requireAuth, requireRole("voter"), async (req, res) => 
     await election.save();
     return res.status(400).json({ message: "Election already ended" });
   }
+  // org scoping: voter must be same org
+  if (req.user?.organizationId && election.organizationId && election.organizationId !== req.user.organizationId) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+  // eligibility checks: user must be eligible and satisfy class rule if set
+  const voter = await User.findById(req.user!.id).select("isEligible classLevel organizationId");
+  if (!voter?.isEligible) return res.status(403).json({ message: "Not eligible to vote" });
+  if (election.eligibleClassLevel && election.eligibleClassLevel !== "all") {
+    if (!voter.classLevel || voter.classLevel !== election.eligibleClassLevel) {
+      return res.status(403).json({ message: "Not eligible for this election" });
+    }
+  }
+
   // Validate candidateId by comparing stringified ObjectIds
   const hasCandidate = !!candidateId && election.candidates.some((c) => c._id?.toString() === candidateId);
   if (!hasCandidate) {
     return res.status(400).json({ message: "Invalid candidateId" });
   }
   try {
-    await Vote.create({ electionId: election._id, voterId: new Types.ObjectId(req.user!.id), candidateId: new Types.ObjectId(candidateId) });
+    await Vote.create({ electionId: election._id, voterId: new Types.ObjectId(req.user!.id), candidateId: new Types.ObjectId(candidateId), organizationId: req.user?.organizationId });
     res.status(201).json({ message: "Vote recorded" });
   } catch (e: unknown) {
     if (typeof e === "object" && e !== null && "code" in e && (e as { code?: number }).code === 11000) {
@@ -91,8 +149,10 @@ router.get("/:id/results", requireAuth, async (req, res) => {
   const election = await Election.findById(id);
   if (!election) return res.status(404).json({ message: "Election not found" });
 
+  // org scoping and visibility
   const role = req.user!.role;
-  const canView = election.published && role === "voter";
+  const sameOrg = !req.user?.organizationId || !election.organizationId || election.organizationId === req.user.organizationId;
+  const canView = sameOrg && election.published && role === "voter";
   if (!canView) return res.status(403).json({ message: "Results not available" });
 
   const pipeline = [
@@ -116,6 +176,9 @@ router.get("/:id/results.csv", requireAuth, requireRole("manager"), async (req, 
   const { id } = req.params;
   const election = await Election.findById(id);
   if (!election) return res.status(404).json({ message: "Election not found" });
+  if (req.user?.organizationId && election.organizationId && election.organizationId !== req.user.organizationId) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
 
   const pipeline = [
     { $match: { electionId: new Types.ObjectId(id) } },
@@ -139,6 +202,9 @@ router.get("/:id/results_raw.csv", requireAuth, requireRole("manager", "admin"),
   const { id } = req.params;
   const election = await Election.findById(id);
   if (!election) return res.status(404).json({ message: "Election not found" });
+  if (req.user?.organizationId && election.organizationId && election.organizationId !== req.user.organizationId) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
 
   const votes = await Vote.find({ electionId: election._id }).select("voterId candidateId createdAt");
   const rows = ["election_id,voter_id,candidate_id,timestamp"];

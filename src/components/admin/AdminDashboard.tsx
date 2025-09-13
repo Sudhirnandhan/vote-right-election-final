@@ -26,6 +26,16 @@ interface User {
   lastLogin: Date | null;
 }
 
+// Shape of user objects returned by the API
+interface ApiUser {
+  _id?: string;
+  id?: string;
+  name: string;
+  email: string;
+  role: User["role"];
+  lastLogin?: string | null;
+}
+
 interface SystemLog {
   id: string;
   timestamp: Date;
@@ -56,7 +66,7 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
   const [pendingCount, setPendingCount] = useState<number>(0);
 
   // Fetch users from API
-  const API_BASE = (import.meta as any).env?.VITE_API_URL ?? "http://localhost:4000";
+  const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
   useEffect(() => {
     const loadUsers = async () => {
       try {
@@ -64,10 +74,10 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
         setUserError(null);
         const res = await fetch(`${API_BASE}/admin/users`, { credentials: "include" });
         if (!res.ok) throw new Error("Failed to load users");
-        const data = await res.json();
+        const data: ApiUser[] = await res.json();
         // Map API -> UI type
-        const mapped: User[] = data.map((u: any) => ({
-          id: u._id || u.id,
+        const mapped: User[] = data.map((u) => ({
+          id: u._id || u.id || crypto.randomUUID(),
           name: u.name,
           email: u.email,
           role: u.role,
@@ -75,8 +85,9 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
           lastLogin: u.lastLogin ? new Date(u.lastLogin) : null,
         }));
         setUsers(mapped);
-      } catch (e: any) {
-        setUserError(e.message || "Failed to load users");
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : "Failed to load users";
+        setUserError(message);
       } finally {
         setLoadingUsers(false);
       }
@@ -99,50 +110,7 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
     return () => clearInterval(id);
   }, []);
 
-  // Mock system logs
-  const [systemLogs, setSystemLogs] = useState<SystemLog[]>([
-    {
-      id: "log1",
-      timestamp: new Date(Date.now() - 10 * 60 * 1000), // 10 minutes ago
-      action: "User Login",
-      user: "Sarah Davis",
-      details: "Admin user logged in successfully",
-      level: "info"
-    },
-    {
-      id: "log2",
-      timestamp: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
-      action: "Election Created",
-      user: "Robert Williams",
-      details: "New election 'Student Council 2024' created",
-      level: "info"
-    },
-    {
-      id: "log3",
-      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-      action: "Failed Login Attempt",
-      user: "Unknown",
-      details: "Multiple failed login attempts from IP 192.168.1.105",
-      level: "warning"
-    },
-    {
-      id: "log4",
-      timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000), // 5 hours ago
-      action: "System Backup",
-      user: "System",
-      details: "Automated system backup completed successfully",
-      level: "info"
-    },
-    {
-      id: "log5",
-      timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
-      action: "Database Error",
-      user: "System",
-      details: "Temporary database connection failure - auto-recovered",
-      level: "error"
-    }
-  ]);
-
+  
   // Mock system settings
   const [systemSettings, setSystemSettings] = useState<SystemSetting[]>([
     {

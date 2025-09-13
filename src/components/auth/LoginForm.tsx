@@ -178,6 +178,7 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
                 <Input
                   id="email"
                   type="email"
+                  autoComplete="username"
                   placeholder={roleConfig[selectedTab].usernamePlaceholder}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -191,6 +192,7 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
                 <Input
                   id="password"
                   type="password"
+                  autoComplete="current-password"
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -226,15 +228,15 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
                     <form onSubmit={handleRegister} className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="reg-name">Full Name</Label>
-                        <Input id="reg-name" value={regName} onChange={(e) => setRegName(e.target.value)} placeholder="Enter your full name" required />
+                        <Input id="reg-name" autoComplete="name" value={regName} onChange={(e) => setRegName(e.target.value)} placeholder="Enter your full name" required />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="reg-email">Email</Label>
-                        <Input id="reg-email" type="email" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} placeholder="Enter your email" required />
+                        <Input id="reg-email" type="email" autoComplete="email" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} placeholder="Enter your email" required />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="reg-password">Password</Label>
-                        <Input id="reg-password" type="password" value={regPassword} onChange={(e) => setRegPassword(e.target.value)} placeholder="At least 8 characters with letters and numbers" required />
+                        <Input id="reg-password" type="password" autoComplete="new-password" value={regPassword} onChange={(e) => setRegPassword(e.target.value)} placeholder="At least 8 characters with letters and numbers" required />
                       </div>
 
                       {regMessage && <p className="text-sm text-muted-foreground">{regMessage}</p>}

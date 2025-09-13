@@ -26,24 +26,7 @@ const Index = () => {
   const [voteData, setVoteData] = useState<VoteData | null>(null);
   const { toast } = useToast();
 
-  // Mock elections data for vote confirmation
-  const mockElections = {
-    "1": {
-      title: "Student Council President 2024",
-      candidates: {
-        "c1": "Sarah Johnson",
-        "c2": "Michael Chen", 
-        "c3": "Emily Rodriguez"
-      }
-    },
-    "2": {
-      title: "Campus Budget Allocation",
-      candidates: {
-        "b1": "Academic Resources",
-        "b2": "Student Activities"
-      }
-    }
-  };
+  // Live: rely on VoterDashboard + backend; confirmation screen gets values from selection
 
   const handleLogin = (credentials: UserCredentials) => {
     setUserCredentials(credentials);
@@ -89,21 +72,10 @@ const Index = () => {
   };
 
   const handleVote = (electionId: string, candidateId: string) => {
-    const election = mockElections[electionId as keyof typeof mockElections];
-    const candidateName = election?.candidates[candidateId as keyof typeof election.candidates];
-    
-    if (election && candidateName) {
-      setVoteData({
-        electionTitle: election.title,
-        candidateName: candidateName
-      });
-      setCurrentState("confirmation");
-      
-      toast({
-        title: "Vote Cast Successfully",
-        description: `Your vote for ${candidateName} has been recorded`,
-      });
-    }
+    // For confirmation UI, we just store IDs; if needed we can fetch names by ID from backend
+    setVoteData({ electionTitle: `Election ${electionId}`, candidateName: `Candidate ${candidateId}` });
+    setCurrentState("confirmation");
+    toast({ title: "Vote Cast Successfully", description: `Your vote has been recorded` });
   };
 
   const handleBackToDashboard = () => {

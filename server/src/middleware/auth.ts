@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env";
 
-export interface JWTPayload { id: string; role: string }
+export interface JWTPayload { id: string; role: string; organizationId?: string }
 
 declare module "express-serve-static-core" {
   interface Request {

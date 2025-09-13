@@ -31,6 +31,13 @@ async function bootstrap() {
   app.use(express.json());
   app.use(cookieParser());
 
+  // Security headers and conservative API caching
+  app.use((req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Cache-Control", "no-cache, no-store, max-age=0");
+    next();
+  });
+
   // Health with DB status
   app.use("/health", healthRoutes);
 

@@ -152,6 +152,11 @@
 }
 
 @layer base {
+  html {
+    text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%; /* For Safari/iOS */
+  }
+
   * {
     @apply border-border;
   }
@@ -159,4 +164,9 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Ensure Safari respects user-select utility */
+@layer utilities {
+  .select-none { -webkit-user-select: none; }
 }

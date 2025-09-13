@@ -13,7 +13,11 @@ export interface IElection extends Document {
   status: ElectionStatus; // open -> closed (no more voting)
   published: boolean; // when true, results are visible to permitted users
   createdBy: Types.ObjectId; // manager/admin who created the election
+  organizationId?: string; // tenant scope
+  eligibleClassLevel?: "11" | "12" | "all"; // optional per-election restriction
   endAt?: Date; // optional time-based closing
+  deleted?: boolean; // soft-delete flag
+  deletedAt?: Date | null; // timestamp when removed
   createdAt: Date;
   updatedAt: Date;
 }
@@ -29,9 +33,15 @@ const electionSchema = new Schema<IElection>(
     status: { type: String, enum: ["open", "closed"], default: "open", index: true },
     published: { type: Boolean, default: false, index: true },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    organizationId: { type: String, index: true },
+    eligibleClassLevel: { type: String, enum: ["11", "12", "all"], default: "all" },
     endAt: { type: Date },
+    deleted: { type: Boolean, default: false, index: true },
+    deletedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
+
+electionSchema.index({ organizationId: 1, deleted: 1 });
 
 export const Election: Model<IElection> = mongoose.models.Election || mongoose.model<IElection>("Election", electionSchema);
